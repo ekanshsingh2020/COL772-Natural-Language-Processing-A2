@@ -1,0 +1,5 @@
+I used transformers for predicting columns and used exact matching for predicting rows.
+In column classfiication, I used a transformer model to predict the column type where I used the standard documentation of pytorch when I faced difficulty in programming.
+I matched the string in the question with every row in the corresponding table and if the string is found in the row, I gave the row some score according to the length of the string.
+I also gave extra score with the same column is also present in the question.
+Discussed with : Yuyutsu Saini, Tanish Gupta, Atif Anwer
