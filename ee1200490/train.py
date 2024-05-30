@@ -18,7 +18,7 @@ from unidecode import unidecode
 torch.manual_seed(0)
 np.random.seed(0)
 
-# nltk.download('punkt')
+nltk.download('punkt')
 # from google.colab import drive
 # drive.mount('data')
 
@@ -89,87 +89,6 @@ print('Number of label rows:', len(label_rows_test))
 
 model = gensim.downloader.load('glove-wiki-gigaword-100')
 
-
-
-
-
-
-
-train_set = []
-label_set = []
-total_num_row =0
-for i in range(len(questions_train)):
-    question = unidecode(questions_train[i]).lower()
-    table = tables_train[i]
-    actual_col = actual_col_train[i]
-    label_row = label_rows_train[i]
-    for j in range(len(table['rows'])):
-        total_num_row+=1
-        row = table['rows'][j]
-        score = torch.empty(3)
-        for k in range(len(row)):
-            cell = unidecode(row[k]).lower()
-            that_col = unidecode(actual_col[k]).lower()
-            score[0]= score[0]+len(cell)
-            score[1]= score[1]+len(cell)*len(cell)
-            score[2]= score[2]+len(cell)*len(cell)*len(cell)
-        train_set.append(score)
-        if j in label_row:
-            label_set.append([0,1])
-        else:
-            label_set.append([1,0])
-
-
-label_set = torch.tensor(label_set, dtype=torch.float32)
-train_set = torch.stack(train_set)
-
-
-class neuralNet(nn.Module):
-    def __init__(self):
-        super(neuralNet,self).__init__()
-        self.first_layer = nn.Linear(3, 10)
-        self.relu = nn.ReLU()
-        self.second_layer = nn.Linear(10, 25)
-        self.tanh = nn.Tanh()
-        self.third_layer = nn.Linear(25, 2)
-
-    def forward(self, x):
-        x = self.first_layer(x)
-        x = self.relu(x)
-        x = self.second_layer(x)
-        x = self.tanh(x)
-        x = self.third_layer(x)
-        return x
-    
-row_model = neuralNet()
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(row_model.parameters(), lr=0.005)
-row_model.train()
-epochs = 100
-for i in range(epochs):
-    # model.train()
-    acc_train = 0
-    optimizer.zero_grad()
-    outputs = row_model(train_set)
-    # print(outputs.shape)
-    # print(label_set.shape)
-    loss = criterion(outputs,label_set)
-    acc_train += (outputs.argmax(dim=1) == label_set.argmax(dim=1)).sum().item()
-    loss.backward()
-    optimizer.step()
-    # print('acc is ', acc_train/total_num_row)
-    row_model.eval()
-
-
-
-
-
-
-
-
-
-
-
 # predictions_train_row = []
 # for i in range(len(questions_train)):
 #     question = unidecode(questions_train[i]).lower()
@@ -220,7 +139,7 @@ embedding_dimension = 100
 hidden_dimension = 250
 num_layers = 2
 num_heads = 1
-dropout = 0.08
+dropout = 0.03
 
 class Classifier(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, num_layers, num_heads, dropout):
@@ -320,12 +239,11 @@ for i in range(len(questions_vectors_test)):
 
 print("Training the model...")
 random.shuffle(batched_data_train)
-
 best_acc = 0
 best_model = './model'
-row_final_model = './row_final_model'
 
-for epoch in range(500):
+
+for epoch in range(600):
     acc_train = 0
     # random.shuffle(batched_data)
     k=0
@@ -374,5 +292,7 @@ for epoch in range(500):
             best_acc = acc_test
             torch.save(classifier.state_dict(), best_model)
 
-torch.save(row_model.state_dict(),row_final_model)
+
 print("Training complete")
+
+# torch.save(classifier.state_dict(), './model')

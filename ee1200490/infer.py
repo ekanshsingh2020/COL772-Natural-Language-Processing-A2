@@ -16,7 +16,7 @@ import sys
 from unidecode import unidecode
 
 
-# nltk.download('punkt')
+nltk.download('punkt')
 # from google.colab import drive
 # drive.mount('data')
 
@@ -56,8 +56,38 @@ print('Number of qids is ', len(qid_test))
 
 model = gensim.downloader.load('glove-wiki-gigaword-100')
 
+print("Model loaded")
 
-max_len_question = 60
+predictions_train_row = []
+for i in range(len(questions_test)):
+    question = unidecode(questions_test[i]).lower()
+    table = tables_test[i]
+    actual_col = actual_col_test[i]
+    predicted_row = []
+    score_of_row = []
+    for j in range(len(table['rows'])):
+        row = table['rows'][j]
+        score = 0.0
+        for k in range(len(row)):
+            cell = unidecode(row[k]).lower()
+            that_col = unidecode(actual_col[k]).lower()
+            if cell in question:
+                if that_col in question:
+                    distance = abs(question.index(cell) - question.index(that_col))
+                    score += (43.0)*(len(cell)*len(cell))/(distance+1)
+                else:
+                    score += len(cell)*len(cell)
+        score_of_row.append(score)
+    
+    max_score = max(score_of_row)
+    for i in range(len(score_of_row)):
+        if score_of_row[i] == max_score:
+            predicted_row.append(i)
+    predictions_train_row.append(predicted_row)
+
+
+
+    max_len_question = 60
 
 class PositionalEmbedding(nn.Module):
     def __init__(self, embedding_dim):
@@ -76,7 +106,7 @@ embedding_dimension = 100
 hidden_dimension = 250
 num_layers = 2
 num_heads = 1
-dropout = 0.08
+dropout = 0.03
 
 class Classifier(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, num_layers, num_heads, dropout):
@@ -155,75 +185,6 @@ classifier.load_state_dict(torch.load('./model'))
 
 classifier.eval()
 
-
-
-
-print("Inferring rows.............")
-
-
-class neuralNet(nn.Module):
-    def __init__(self):
-        super(neuralNet,self).__init__()
-        self.first_layer = nn.Linear(3, 10)
-        self.relu = nn.ReLU()
-        self.second_layer = nn.Linear(10, 25)
-        self.tanh = nn.Tanh()
-        self.third_layer = nn.Linear(25, 2)
-
-    def forward(self, x):
-        x = self.first_layer(x)
-        x = self.relu(x)
-        x = self.second_layer(x)
-        x = self.tanh(x)
-        x = self.third_layer(x)
-        return x
-
-row_model = neuralNet()
-criterion2 = nn.CrossEntropyLoss()
-
-test_set = []
-total_num_row =0
-for i in range(len(questions_test)):
-    question = unidecode(questions_test[i]).lower()
-    table = tables_test[i]
-    actual_col = actual_col_test[i]
-    for j in range(len(table['rows'])):
-        total_num_row+=1
-        row = table['rows'][j]
-        score = torch.empty(3)
-        for k in range(len(row)):
-            cell = unidecode(row[k]).lower()
-            that_col = unidecode(actual_col[k]).lower()
-            score[0]= score[0]+len(cell)
-            score[1]= score[1]+len(cell)*len(cell)
-            score[2]= score[2]+len(cell)*len(cell)*len(cell)
-        test_set.append(score)
-
-
-row_model.load_state_dict(torch.load('./row_final_model'))
-row_model.eval()
-
-output_row = row_model(test_set)
-
-output_rows = []
-for i in range(len(output_row)):
-    if output_row[i][0]>output_row[i][1]:
-        output_rows.append(0)
-    else:
-        output_rows.append(1)
-
-predictions_train_row = []
-idx=0
-for i in range(len(questions_test)):
-    ques_table_row = tables_test['rows'][i]
-    temp_list = []
-    for j in range (len(ques_table_row)):
-        if output_rows[idx]==1:
-            temp_list.append(j)
-        idx+=1
-    predictions_train_row.append(temp_list)
-
-
 batched_data_test = []
 for i in range(len(questions_vectors_test)):
     temp_list = []
@@ -231,7 +192,7 @@ for i in range(len(questions_vectors_test)):
     temp_list.append(col_embeddings_test[i])
     batched_data_test.append(temp_list)
 
-print("Inferring columns.............")
+print("Testing the model...")
 # random.shuffle(batched_data_train)
 
 acc_test = 0
@@ -257,8 +218,6 @@ for i in range(len(column_predictions)):
     else:
         column_name_predictions.append(actual_col_test[i][0])
 
-print("Inferring cells.............")
-
 final_col = column_name_predictions
 final_row = predictions_train_row
 final_cell = []
@@ -271,8 +230,6 @@ for i in range(len(final_row)):
 
 # make a json in this format { "qid": "<question_id>", "label_row": ["<correct_rows>"], "label_col": ["<correct_cols>"],
 # "label_cell": [["<row>", "<col>"]] }
-    
-print("Writing to file.............")
     
 final_json = []
 for i in range(len(qid_test)):
@@ -291,3 +248,6 @@ with open(pred_file, 'w', encoding='utf-8') as file:
 
 
 print("Testing complete")
+
+
+
